@@ -1,15 +1,21 @@
 // libs/socket.js
 import { Server as SocketIOServer } from "socket.io";
+import { getAllowedOrigins } from "../config.js";
 
 let io;
 const onlineUsers = new Map();
 
 export const initSocket = (server) => {
+  const allowedOrigins = getAllowedOrigins();
+  
   io = new SocketIOServer(server, {
     cors: {
-      origin: "*", 
+      origin: allowedOrigins.length > 0 ? allowedOrigins : "*", 
       methods: ["GET", "POST"],
+      credentials: true,
     },
+    transports: ["websocket", "polling"], // Support both WebSocket and polling
+    allowEIO3: true, // Allow Engine.IO v3 clients
   });
 
   io.on("connection", (socket) => {
