@@ -26,6 +26,38 @@ export const initSocket = (server) => {
       console.log(`User ${userId} registered with socket ${socket.id}`);
     });
 
+    // Regular chat events
+    socket.on("join_chat", (chatId) => {
+      socket.join(`chat_${chatId}`);
+      console.log(`Socket ${socket.id} joined chat ${chatId}`);
+    });
+
+    socket.on("leave_chat", (chatId) => {
+      socket.leave(`chat_${chatId}`);
+      console.log(`Socket ${socket.id} left chat ${chatId}`);
+    });
+
+    socket.on("typing", ({ chatId, userId, userName, isTyping }) => {
+      console.log(`📝 Typing event received from user ${userId} in chat ${chatId}, isTyping: ${isTyping}`);
+      console.log(`📤 Broadcasting to room: chat_${chatId}`);
+      
+      // Broadcast to all users in the chat room except the sender
+      socket.to(`chat_${chatId}`).emit("user_typing", {
+        chatId,
+        userId,
+        userName,
+        isTyping,
+      });
+      
+      // Log room members for debugging
+      const room = io.sockets.adapter.rooms.get(`chat_${chatId}`);
+      if (room) {
+        console.log(`👥 Room chat_${chatId} has ${room.size} members`);
+      } else {
+        console.warn(`⚠️ Room chat_${chatId} does not exist`);
+      }
+    });
+
     // Marketplace messaging events
     socket.on("join_marketplace_thread", (threadId) => {
       socket.join(`marketplace_thread_${threadId}`);

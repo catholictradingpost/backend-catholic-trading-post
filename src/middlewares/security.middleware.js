@@ -51,8 +51,7 @@ export const corsConfig = {
     } else {
       console.error("CORS: Blocked origin:", origin);
       console.error("CORS: Allowed origins:", allowedOrigins);
-      // Return false instead of error to let cors middleware handle it properly
-      callback(null, false);
+      callback(new Error(`Not allowed by CORS. Origin: ${origin} not in allowed list.`));
     }
   },
   credentials: true, // Allow cookies

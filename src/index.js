@@ -1,6 +1,6 @@
 import app from "./app.js";
 import { connectDB } from "./db.js";
-import { PORT, getAllowedOrigins } from "./config.js";
+import { PORT } from "./config.js";
 import http from "http";
 import "./libs/initialSetup.js";
 import { initSocket } from "./libs/socket.js";
@@ -11,17 +11,6 @@ async function main() {
     await connectDB();
     const server = http.createServer(app);
     initSocket(server);
-    
-    // Log CORS configuration on startup
-    const allowedOrigins = getAllowedOrigins();
-    console.log("=".repeat(60));
-    console.log("CORS Configuration:");
-    console.log("Allowed Origins:", allowedOrigins.length > 0 ? allowedOrigins : "⚠️ NONE CONFIGURED!");
-    if (allowedOrigins.length === 0) {
-      console.error("⚠️ WARNING: No CORS origins configured!");
-      console.error("⚠️ Set FRONTEND_URL or ALLOWED_ORIGINS environment variable");
-    }
-    console.log("=".repeat(60));
     
     server.listen(PORT, () => {
       logger.info(`Server started successfully`, { port: PORT, env: process.env.NODE_ENV });
