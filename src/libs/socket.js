@@ -16,6 +16,11 @@ export const initSocket = (server) => {
     },
     transports: ["websocket", "polling"], // Support both WebSocket and polling
     allowEIO3: true, // Allow Engine.IO v3 clients
+    pingTimeout: 60000,
+    pingInterval: 25000,
+    maxHttpBufferSize: 1e8, // 100MB
+    allowUpgrades: true,
+    perMessageDeflate: true,
   });
 
   io.on("connection", (socket) => {
