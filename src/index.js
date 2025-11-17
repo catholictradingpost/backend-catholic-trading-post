@@ -12,7 +12,7 @@ async function main() {
     const server = http.createServer(app);
     initSocket(server);
     
-    server.listen(PORT, () => {
+    server.listen(PORT, '0.0.0.0', () => {
       logger.info(`Server started successfully`, { port: PORT, env: process.env.NODE_ENV });
       console.log(`Server started on ${PORT}`);
     });
