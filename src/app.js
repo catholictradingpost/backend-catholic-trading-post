@@ -50,6 +50,17 @@ const app = express();
 // This allows Express to properly handle X-Forwarded-* headers
 app.set('trust proxy', true);
 
+// Health check endpoint - Place early to ensure it's always accessible
+app.get("/health", (req, res) => {
+  res.status(200).json({
+    status: "ok",
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    environment: process.env.NODE_ENV,
+    socketIO: "enabled",
+  });
+});
+
 // CORS configuration (using security middleware config)
 // Skip CORS for Socket.IO - Socket.IO handles its own CORS
 app.use((req, res, next) => {
@@ -168,24 +179,5 @@ app.use("/api/events", eventRoutes);
 app.use("/api/moderation-list", moderationListRoutes);
 app.use("/api/marketing-list", marketingListRoutes);
 app.use("/api/admin", adminRoutes);
-
-// Health check endpoint (before error handlers)
-app.get("/health", (req, res) => {
-  res.status(200).json({
-    status: "ok",
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-    environment: process.env.NODE_ENV,
-  });
-});
-
-// Socket.IO health check
-app.get("/socket.io/health", (req, res) => {
-  res.status(200).json({
-    status: "ok",
-    socketIO: "enabled",
-    timestamp: new Date().toISOString(),
-  });
-});
 
 export default app;

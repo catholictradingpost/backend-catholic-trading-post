@@ -8,13 +8,30 @@ import { logger } from "./utils/logger.js";
 
 async function main() {
   try {
+    console.log('🚀 Starting server...');
+    console.log('📦 Environment:', process.env.NODE_ENV);
+    console.log('🔌 Port:', PORT);
+    
     await connectDB();
+    console.log('✅ Database connected');
+    
     const server = http.createServer(app);
+    console.log('✅ HTTP server created');
+    
     initSocket(server);
+    console.log('✅ Socket.IO initialized');
     
     server.listen(PORT, '0.0.0.0', () => {
       logger.info(`Server started successfully`, { port: PORT, env: process.env.NODE_ENV });
-      console.log(`Server started on ${PORT}`);
+      console.log(`✅ Server started successfully on port ${PORT}`);
+      console.log(`🌐 Health check: http://0.0.0.0:${PORT}/health`);
+      console.log(`🔌 Socket.IO path: /socket.io/`);
+    });
+    
+    // Handle server errors
+    server.on('error', (error) => {
+      console.error('❌ Server error:', error);
+      logger.error('Server error', error);
     });
 
     // Graceful shutdown
