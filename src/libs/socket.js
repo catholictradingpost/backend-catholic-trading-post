@@ -17,24 +17,66 @@ export const initSocket = (server) => {
     : { 
         origin: (origin, callback) => {
           console.log('🔌 Socket.IO CORS check - Origin:', origin);
+          console.log('🔌 Socket.IO CORS check - Allowed origins:', allowedOrigins);
+          
           // Allow requests with no origin (mobile apps, Postman, etc.)
           if (!origin) {
             console.log('🔌 Socket.IO CORS: Allowing request with no origin');
             return callback(null, true);
           }
           
-          // Check if origin is in allowed list
-          const isAllowed = allowedOrigins.some(allowed => origin === allowed || origin.startsWith(allowed));
-          if (isAllowed) {
-            console.log('🔌 Socket.IO CORS: Allowed origin:', origin);
+          // Normalize origins for comparison (remove trailing slashes)
+          const normalizedOrigin = origin.replace(/\/+$/, '');
+          
+          // Check for exact match first
+          const exactMatch = allowedOrigins.some(allowed => {
+            const normalizedAllowed = allowed.replace(/\/+$/, '');
+            return normalizedOrigin === normalizedAllowed;
+          });
+          
+          if (exactMatch) {
+            console.log('🔌 Socket.IO CORS: Exact match found for origin:', origin);
+            return callback(null, true);
+          }
+          
+          // Check for domain match (www vs non-www, subdomains)
+          const domainMatch = allowedOrigins.some(allowed => {
+            try {
+              const originUrl = new URL(normalizedOrigin);
+              const allowedUrl = new URL(allowed.replace(/\/+$/, ''));
+              
+              // Match same domain (www.example.com and example.com)
+              const originDomain = originUrl.hostname.replace(/^www\./, '');
+              const allowedDomain = allowedUrl.hostname.replace(/^www\./, '');
+              
+              if (originDomain === allowedDomain) {
+                return true;
+              }
+              
+              // Match subdomains (secure.example.com matches example.com)
+              if (originUrl.hostname.endsWith('.' + allowedDomain)) {
+                return true;
+              }
+            } catch (e) {
+              // If URL parsing fails, fall back to string comparison
+              return normalizedOrigin === allowed.replace(/\/+$/, '');
+            }
+            return false;
+          });
+          
+          if (domainMatch) {
+            console.log('🔌 Socket.IO CORS: Domain match found for origin:', origin);
             return callback(null, true);
           }
           
           // Block origin
           console.error('🔌 Socket.IO CORS: Blocked origin:', origin);
+          console.error('🔌 Socket.IO CORS: Allowed origins were:', allowedOrigins);
           return callback(new Error('Not allowed by CORS'));
         },
-        credentials: true 
+        credentials: true,
+        methods: ["GET", "POST"],
+        allowedHeaders: ["Content-Type", "Authorization"],
       };
   
   io = new SocketIOServer(server, {
