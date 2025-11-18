@@ -46,6 +46,10 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 
+// Trust proxy - Required for Railway and other cloud platforms
+// This allows Express to properly handle X-Forwarded-* headers
+app.set('trust proxy', true);
+
 // CORS configuration (using security middleware config)
 // Skip CORS for Socket.IO - Socket.IO handles its own CORS
 app.use((req, res, next) => {

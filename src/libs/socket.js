@@ -50,6 +50,21 @@ export const initSocket = (server) => {
     path: "/socket.io/",
     serveClient: false, // Don't serve the client
     connectTimeout: 45000,
+    // Configuration for running behind a reverse proxy (Railway)
+    // Trust the proxy to set X-Forwarded-* headers
+    // This is important for WebSocket connections behind proxies
+  });
+
+  // Configure Socket.IO to work behind Railway's reverse proxy
+  // This ensures proper handling of X-Forwarded-* headers
+  io.engine.on("connection_error", (err) => {
+    console.error("🔌 Socket.IO connection error:", err);
+    console.error("🔌 Error details:", {
+      req: err.req?.url,
+      code: err.code,
+      message: err.message,
+      context: err.context,
+    });
   });
 
   io.on("connection", (socket) => {
