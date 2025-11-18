@@ -8,12 +8,27 @@ const onlineUsers = new Map();
 export const initSocket = (server) => {
   const allowedOrigins = getAllowedOrigins();
   
+  // Configure CORS for Socket.IO
+  const corsOptions = allowedOrigins.includes("*") 
+    ? { origin: true, credentials: true } // Allow all origins if * is configured
+    : { 
+        origin: (origin, callback) => {
+          // Allow requests with no origin (mobile apps, Postman, etc.)
+          if (!origin) return callback(null, true);
+          
+          // Check if origin is in allowed list
+          if (allowedOrigins.some(allowed => origin === allowed || origin.startsWith(allowed))) {
+            return callback(null, true);
+          }
+          
+          // Block origin
+          return callback(new Error('Not allowed by CORS'));
+        },
+        credentials: true 
+      };
+  
   io = new SocketIOServer(server, {
-    cors: {
-      origin: "*",
-      methods: ["GET", "POST"],
-      credentials: true,
-    },
+    cors: corsOptions,
     transports: ["websocket", "polling"], // Support both WebSocket and polling
     allowEIO3: true, // Allow Engine.IO v3 clients
     pingTimeout: 60000,
@@ -21,6 +36,10 @@ export const initSocket = (server) => {
     maxHttpBufferSize: 1e8, // 100MB
     allowUpgrades: true,
     perMessageDeflate: true,
+    // Additional options for production WebSocket support
+    path: "/socket.io/",
+    serveClient: false, // Don't serve the client
+    connectTimeout: 45000,
   });
 
   io.on("connection", (socket) => {

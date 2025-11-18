@@ -68,6 +68,8 @@ export const corsConfig = {
     "X-CSRF-Token",
     "Accept",
     "Origin",
+    "Upgrade", // Required for WebSocket upgrade
+    "Connection", // Required for WebSocket upgrade
   ],
 
   exposedHeaders: ["X-Total-Count", "X-Page", "X-Per-Page"],
@@ -79,8 +81,14 @@ export const corsConfig = {
 
 /**
  * Security headers middleware
+ * Skip for Socket.IO endpoints to allow WebSocket upgrade
  */
 export const securityHeaders = (req, res, next) => {
+  // Skip security headers for Socket.IO paths (WebSocket upgrade needs specific headers)
+  if (req.path.startsWith('/socket.io/')) {
+    return next();
+  }
+
   // X-Content-Type-Options: Prevent MIME type sniffing
   res.setHeader("X-Content-Type-Options", "nosniff");
   

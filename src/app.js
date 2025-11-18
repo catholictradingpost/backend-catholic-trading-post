@@ -52,18 +52,26 @@ app.use(cors(corsConfig));
 app.use(cookieParser());
 
 // Security with Helmet
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      scriptSrc: ["'self'"],
-      imgSrc: ["'self'", "data:", "https:"],
+// Note: Skip Helmet for Socket.IO endpoints to allow WebSocket connections
+app.use((req, res, next) => {
+  // Skip Helmet for Socket.IO paths
+  if (req.path.startsWith('/socket.io/')) {
+    return next();
+  }
+  return helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        scriptSrc: ["'self'"],
+        imgSrc: ["'self'", "data:", "https:"],
+        connectSrc: ["'self'", "wss:", "ws:", "https:"], // Allow WebSocket connections
+      },
     },
-  },
-  crossOriginEmbedderPolicy: false, // Allow external resources if needed
-  crossOriginResourcePolicy: { policy: "cross-origin" }, // Allow cross-origin requests
-}));
+    crossOriginEmbedderPolicy: false, // Allow external resources if needed
+    crossOriginResourcePolicy: { policy: "cross-origin" }, // Allow cross-origin requests
+  })(req, res, next);
+});
 
 // Security headers (already imported above)
 app.use(securityHeaders);
