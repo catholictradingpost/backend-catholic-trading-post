@@ -47,9 +47,21 @@ const __dirname = path.dirname(__filename);
 const app = express();
 
 // CORS configuration (using security middleware config)
-app.use(cors(corsConfig));
+// Skip CORS for Socket.IO - Socket.IO handles its own CORS
+app.use((req, res, next) => {
+  if (req.path.startsWith('/socket.io/')) {
+    return next();
+  }
+  return cors(corsConfig)(req, res, next);
+});
 
-app.use(cookieParser());
+// Cookie parser - skip for Socket.IO
+app.use((req, res, next) => {
+  if (req.path.startsWith('/socket.io/')) {
+    return next();
+  }
+  return cookieParser()(req, res, next);
+});
 
 // Security with Helmet
 // Note: Skip Helmet for Socket.IO endpoints to allow WebSocket connections
@@ -76,6 +88,15 @@ app.use((req, res, next) => {
 // Security headers (already imported above)
 app.use(securityHeaders);
 
+// Skip body parsing and other middleware for Socket.IO endpoints
+// Socket.IO handles its own HTTP upgrade requests
+app.use((req, res, next) => {
+  if (req.path.startsWith('/socket.io/')) {
+    return next();
+  }
+  next();
+});
+
 // Stripe webhook route must be BEFORE JSON parsing middleware
 // It needs raw body for signature verification
 app.use("/api/payment/webhook", express.raw({ type: "application/json" }), async (req, res) => {
@@ -83,12 +104,35 @@ app.use("/api/payment/webhook", express.raw({ type: "application/json" }), async
   return handleStripeWebhook(req, res);
 });
 
-app.use(express.json({ limit: "50mb" }));
-app.use(express.urlencoded({ extended: true, limit: "50mb" }));
-app.use(morgan("dev"));
+// Body parsing middleware - skip for Socket.IO
+app.use((req, res, next) => {
+  if (req.path.startsWith('/socket.io/')) {
+    return next();
+  }
+  express.json({ limit: "50mb" })(req, res, next);
+});
 
-// Sanitize request body (remove null bytes, trim strings)
-app.use(sanitizeRequestBody);
+app.use((req, res, next) => {
+  if (req.path.startsWith('/socket.io/')) {
+    return next();
+  }
+  express.urlencoded({ extended: true, limit: "50mb" })(req, res, next);
+});
+
+app.use((req, res, next) => {
+  if (req.path.startsWith('/socket.io/')) {
+    return next();
+  }
+  morgan("dev")(req, res, next);
+});
+
+// Sanitize request body (remove null bytes, trim strings) - skip for Socket.IO
+app.use((req, res, next) => {
+  if (req.path.startsWith('/socket.io/')) {
+    return next();
+  }
+  sanitizeRequestBody(req, res, next);
+});
 
 // API Routes
 app.use("/api/auth", authRoutes);

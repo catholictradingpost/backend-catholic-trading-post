@@ -8,20 +8,30 @@ const onlineUsers = new Map();
 export const initSocket = (server) => {
   const allowedOrigins = getAllowedOrigins();
   
+  console.log('🔌 Initializing Socket.IO server...');
+  console.log('🔌 Allowed origins:', allowedOrigins);
+  
   // Configure CORS for Socket.IO
   const corsOptions = allowedOrigins.includes("*") 
     ? { origin: true, credentials: true } // Allow all origins if * is configured
     : { 
         origin: (origin, callback) => {
+          console.log('🔌 Socket.IO CORS check - Origin:', origin);
           // Allow requests with no origin (mobile apps, Postman, etc.)
-          if (!origin) return callback(null, true);
+          if (!origin) {
+            console.log('🔌 Socket.IO CORS: Allowing request with no origin');
+            return callback(null, true);
+          }
           
           // Check if origin is in allowed list
-          if (allowedOrigins.some(allowed => origin === allowed || origin.startsWith(allowed))) {
+          const isAllowed = allowedOrigins.some(allowed => origin === allowed || origin.startsWith(allowed));
+          if (isAllowed) {
+            console.log('🔌 Socket.IO CORS: Allowed origin:', origin);
             return callback(null, true);
           }
           
           // Block origin
+          console.error('🔌 Socket.IO CORS: Blocked origin:', origin);
           return callback(new Error('Not allowed by CORS'));
         },
         credentials: true 
