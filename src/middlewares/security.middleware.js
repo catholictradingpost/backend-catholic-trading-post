@@ -31,31 +31,36 @@ export const cookieConfig = {
  */
 export const corsConfig = {
   origin: (origin, callback) => {
-    // Get allowed origins from getAllowedOrigins() which combines FRONTEND_URL and ALLOWED_ORIGINS
     const allowedOrigins = getAllowedOrigins();
     
-    // Log for debugging (remove in production if needed)
     console.log("CORS Check - Origin:", origin);
     console.log("CORS Check - Allowed Origins:", allowedOrigins);
-    
-    // Allow requests with no origin (mobile apps, Postman, etc.) in development
-    if (!origin && process.env.NODE_ENV === "development") {
-      console.log("CORS: Allowing request with no origin (development mode)");
+
+    // Allow mobile apps, Postman, same-server calls
+    if (!origin) {
       return callback(null, true);
     }
 
-    // Check if origin is in allowed list
-    if (!origin || allowedOrigins.includes(origin)) {
-      console.log("CORS: Allowing origin:", origin);
-      callback(null, true);
-    } else {
-      console.error("CORS: Blocked origin:", origin);
-      console.error("CORS: Allowed origins:", allowedOrigins);
-      callback(new Error(`Not allowed by CORS. Origin: ${origin} not in allowed list.`));
+    // 🚀 Allow ANY origin if explicitly configured
+    if (allowedOrigins.includes("*")) {
+      return callback(null, true);
     }
+
+    // 🚀 If domain matches allowed list → allow
+    if (allowedOrigins.includes(origin)) {
+      console.log("CORS: Allowed origin:", origin);
+      return callback(null, true);
+    }
+
+    // ❌ Otherwise block
+    console.error("CORS: Blocked origin:", origin);
+    return callback(new Error(`CORS blocked: ${origin} not allowed.`));
   },
-  credentials: true, // Allow cookies
+
+  credentials: true,
+
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+
   allowedHeaders: [
     "Content-Type",
     "Authorization",
@@ -64,8 +69,10 @@ export const corsConfig = {
     "Accept",
     "Origin",
   ],
+
   exposedHeaders: ["X-Total-Count", "X-Page", "X-Per-Page"],
-  maxAge: 86400, // 24 hours
+
+  maxAge: 86400,
   preflightContinue: false,
   optionsSuccessStatus: 204,
 };
