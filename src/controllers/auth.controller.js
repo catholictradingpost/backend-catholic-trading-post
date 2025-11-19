@@ -228,6 +228,8 @@ export const login = async (req, res) => {
         first_name: populatedUser.first_name,
         last_name: populatedUser.last_name,
         phone: populatedUser.phone,
+        avatar: populatedUser.avatar,
+        cover_image: populatedUser.cover_image,
         emailVerified: populatedUser.emailVerified,
         questionnaire: !!hasQuestionnaire, // true o false
         roles: populatedUser.roles.map(role => ({
@@ -441,6 +443,8 @@ export const verifyEmailCode = async (req, res) => {
         first_name: populatedUser.first_name,
         last_name: populatedUser.last_name,
         phone: populatedUser.phone,
+        avatar: populatedUser.avatar,
+        cover_image: populatedUser.cover_image,
         roles: populatedUser.roles.map(role => ({
           _id: role._id,
           name: role.name,
