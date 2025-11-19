@@ -80,3 +80,6 @@ export const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || null;
 
 // Zelle payment email (public, no authentication required)
 export const ZELLE_PAYMENT_EMAIL = process.env.ZELLE_PAYMENT_EMAIL || 'catholictradingpost@outlook.com';
+
+// JWT Token expiration (default: 24h, can be set in env as "24h", "7d", "30d", etc.)
+export const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "24h";

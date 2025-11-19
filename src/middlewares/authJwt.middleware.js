@@ -1,5 +1,5 @@
 import jwt from "jsonwebtoken";
-import { TOKEN_SECRET } from "../config.js";
+import { TOKEN_SECRET, JWT_EXPIRES_IN } from "../config.js";
 import User from "../models/user.model.js";
 import Token from "../models/token.model.js";
 import Verification from "../models/verification.model.js";
@@ -99,7 +99,7 @@ export const extendSession = async (req, res) => {
     const { id } = req.user; // The verifyToken middleware already validated the token
 
     const newToken = jwt.sign({ id }, TOKEN_SECRET, {
-      expiresIn: '24h',
+      expiresIn: JWT_EXPIRES_IN,
     });
 
     const userFound = await User.findById(id);
