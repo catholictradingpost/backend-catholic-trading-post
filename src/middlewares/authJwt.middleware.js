@@ -56,6 +56,43 @@ export const verifyToken = async (req, res, next) => {
   }
 };
 
+// Optional token verification - doesn't fail if token is invalid/expired
+// Useful for endpoints like logout where we want to try to clear the token but don't require it
+export const optionalVerifyToken = async (req, res, next) => {
+  const bearer = req.headers.authorization;
+
+  if (!bearer || !bearer.startsWith("Bearer ")) {
+    // No token provided, continue without setting req.user
+    return next();
+  }
+
+  const token = bearer.split(" ")[1];
+
+  try {
+    const decoded = jwt.verify(token, TOKEN_SECRET);
+
+    const userFound = await User.findById(decoded.id).populate('roles');
+    if (!userFound) {
+      // User not found, continue without setting req.user
+      return next();
+    }
+
+    const dbToken = await Token.findOne({ userId: userFound._id });
+    if (!dbToken || dbToken.token !== token) {
+      // Token not valid, continue without setting req.user
+      return next();
+    }
+
+    // Token is valid, set user
+    req.user = userFound;
+    req.userId = userFound._id.toString();
+    next();
+  } catch (error) {
+    // Token invalid/expired, continue without setting req.user
+    next();
+  }
+};
+
 // Endpoint to extend session and generate new JWT
 export const extendSession = async (req, res) => {
   try {

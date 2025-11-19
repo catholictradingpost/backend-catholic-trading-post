@@ -29,7 +29,7 @@ export const getUserById = async (req, res) => {
 // Update a user by ID
 export const updateUser = async (req, res) => {
   try {
-    const { first_name, last_name, phone, email, roles } = req.body;
+    const { first_name, last_name, phone, email, roles, avatar, cover_image } = req.body;
 
     let rolesData;
     if (roles && roles.length > 0) {
@@ -40,15 +40,19 @@ export const updateUser = async (req, res) => {
       }
     }
 
+    // Build update object with only provided fields
+    const updateData = {};
+    if (first_name !== undefined) updateData.first_name = first_name;
+    if (last_name !== undefined) updateData.last_name = last_name;
+    if (phone !== undefined) updateData.phone = phone;
+    if (email !== undefined) updateData.email = email;
+    if (avatar !== undefined) updateData.avatar = avatar;
+    if (cover_image !== undefined) updateData.cover_image = cover_image;
+    if (rolesData) updateData.roles = rolesData.map(role => role._id);
+
     const updatedUser = await User.findByIdAndUpdate(
       req.params.id,
-      {
-        first_name,
-        last_name,
-        phone,
-        email,
-        roles: rolesData ? rolesData.map(role => role._id) : undefined, // Update roles if provided
-      },
+      updateData,
       { new: true }
     ).populate("roles", "name"); // Populate roles (many-to-many)
 

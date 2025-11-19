@@ -1,9 +1,10 @@
 /**
  * Category-based pricing configuration for pay-per-post
- * Automobiles = $10, Art/Misc = $4, Free items = $0
+ * Automobiles = $10, General items / All other items = $4, Free items = $0
  */
 
 // Category mapping for pricing
+// Automobiles = $10, All other categories = $4, Free items = $0
 const CATEGORY_PRICING = {
   // Automobiles - $10 (10 credits)
   'Cars': 10,
@@ -11,7 +12,7 @@ const CATEGORY_PRICING = {
   'cars': 10,
   'automobiles': 10,
   
-  // Art/Misc - $4 (4 credits)
+  // General items / All other items - $4 (4 credits)
   'Religious Art': 4,
   'Religious Items': 4,
   'Books': 4,
@@ -24,6 +25,10 @@ const CATEGORY_PRICING = {
   'art': 4,
   'Misc': 4,
   'misc': 4,
+  'miscellaneous': 4,
+  'Miscellaneous': 4,
+  'antiques': 4,
+  'Antiques': 4,
 };
 
 /**
@@ -53,7 +58,8 @@ export function getPostingCost(category, itemPrice = null) {
     return CATEGORY_PRICING[normalizedCategory];
   }
   
-  // Default pricing for unknown categories - treat as art/misc
+  // Default pricing for unknown categories - treat as general items ($4)
+  // All non-automobile categories default to $4
   return 4;
 }
 
@@ -67,8 +73,8 @@ export function getPricingInfo(category) {
   
   const descriptions = {
     10: 'Automobiles cost $10 per post',
-    4: 'Art, books, and miscellaneous items cost $4 per post',
-    0: 'Free items cost $0 per post'
+    4: 'General items / All other items cost $4 per post',
+    0: 'Free items cost $0 per post (always free, even for free accounts)'
   };
   
   return {
@@ -84,12 +90,9 @@ export function getPricingInfo(category) {
  */
 export function getAllCategoryPricing() {
   const categories = [
-    { name: 'Cars', cost: 10, description: 'Automobiles - $10 per post' },
-    { name: 'Religious Art', cost: 4, description: 'Religious Art - $4 per post' },
-    { name: 'Religious Items', cost: 4, description: 'Religious Items - $4 per post' },
-    { name: 'Books', cost: 4, description: 'Books - $4 per post' },
-    { name: 'Other', cost: 4, description: 'Other items - $4 per post' },
-    { name: 'Free Items', cost: 0, description: 'Free items (price = $0) - $0 per post' }
+    { name: 'Automobiles', cost: 10, description: 'Automobiles - $10 per post' },
+    { name: 'General Items', cost: 4, description: 'General items / All other items - $4 per post' },
+    { name: 'Free Items', cost: 0, description: 'Free items (price = $0) - Always free, even for free accounts' }
   ];
   
   return categories;

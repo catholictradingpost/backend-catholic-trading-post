@@ -57,9 +57,26 @@ export const IMAGEKIT_PUBLIC_KEY = process.env.IMAGEKIT_PUBLIC_KEY;
 export const IMAGEKIT_PRIVATE_KEY = process.env.IMAGEKIT_PRIVATE_KEY;
 export const IMAGEKIT_URL_ENDPOINT = process.env.IMAGEKIT_URL_ENDPOINT;
 
-// SendGrid (opcional)
+// Email Services (optional - supports multiple providers)
 export const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY || null;
+export const RESEND_API_KEY = process.env.RESEND_API_KEY || null;
+// Free SMTP options (fully free, unlimited)
+export const GMAIL_USER = process.env.GMAIL_USER || null;
+export const GMAIL_APP_PASSWORD = process.env.GMAIL_APP_PASSWORD || null;
+export const OUTLOOK_USER = process.env.OUTLOOK_USER || null;
+export const OUTLOOK_PASSWORD = process.env.OUTLOOK_PASSWORD || null;
+export const YAHOO_USER = process.env.YAHOO_USER || null;
+export const YAHOO_APP_PASSWORD = process.env.YAHOO_APP_PASSWORD || null;
+// Generic SMTP (works with any email provider)
+export const SMTP_HOST = process.env.SMTP_HOST || null;
+export const SMTP_PORT = process.env.SMTP_PORT || null;
+export const SMTP_USER = process.env.SMTP_USER || null;
+export const SMTP_PASSWORD = process.env.SMTP_PASSWORD || null;
+export const SMTP_SECURE = process.env.SMTP_SECURE || null;
 
 // Stripe (opcional pero requerido para pagos)
 export const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || null;
 export const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || null;
+
+// Zelle payment email (public, no authentication required)
+export const ZELLE_PAYMENT_EMAIL = process.env.ZELLE_PAYMENT_EMAIL || 'catholictradingpost@outlook.com';

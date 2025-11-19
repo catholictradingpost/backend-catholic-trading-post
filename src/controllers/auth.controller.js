@@ -1,22 +1,34 @@
 import User from "../models/user.model.js";
 import Role from "../models/role.model.js";
 import Token from "../models/token.model.js";
+import PendingRegistration from "../models/pendingRegistration.model.js";
 import bcrypt from "bcryptjs";
 import { createAccessToken } from "../libs/jwt.js";
 import jwt from "jsonwebtoken";
 import { TOKEN_SECRET } from "../config.js";
 import Questionnaire from "../models/questionnaire.model.js";
 import crypto from "crypto";
-import { sendVerificationEmail } from "../libs/emailService.js";
+// Try free email service first, fallback to SendGrid
+import { sendVerificationEmail } from "../libs/emailServiceFree.js";
 
 export const register = async (req, res) => {
   try {
     const { email, password, first_name, last_name, phone } = req.body;
 
-    // Check if email already exists
-    const existingUser = await User.findOne({ email });
+    // Normalize email
+    const normalizedEmail = email.toLowerCase().trim();
+
+    // Check if email already exists in User collection
+    const existingUser = await User.findOne({ email: normalizedEmail });
     if (existingUser) {
       return res.status(400).json({ message: "The email is already in use" });
+    }
+
+    // Check if there's a pending registration for this email
+    const existingPending = await PendingRegistration.findOne({ email: normalizedEmail });
+    if (existingPending) {
+      // Delete old pending registration and create a new one
+      await PendingRegistration.findOneAndDelete({ email: normalizedEmail });
     }
 
     // Validate required fields
@@ -33,71 +45,58 @@ export const register = async (req, res) => {
       return res.status(500).json({ message: 'Default "Default" role not found' });
     }
 
-    // Generate email verification token
-    const emailVerificationToken = crypto.randomBytes(32).toString('hex');
-    const emailVerificationTokenExpiry = new Date();
-    emailVerificationTokenExpiry.setHours(emailVerificationTokenExpiry.getHours() + 24); // 24 hours expiry
+    // Generate 6-digit verification code
+    const emailVerificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const emailVerificationCodeExpiry = new Date();
+    emailVerificationCodeExpiry.setMinutes(emailVerificationCodeExpiry.getMinutes() + 15); // 15 minutes expiry
 
-    // Create user
-    const newUser = new User({
-      email,
+    // Store registration data in PendingRegistration (account not created yet)
+    const pendingRegistration = new PendingRegistration({
+      email: normalizedEmail,
       password: passwordHash,
       first_name,
       last_name,
       phone,
-      roles: [defaultRole._id], // Assign Default role
-      emailVerified: false,
-      emailVerificationToken,
-      emailVerificationTokenExpiry,
+      emailVerificationCode,
+      emailVerificationCodeExpiry,
+      roleId: defaultRole._id,
     });
 
-    const savedUser = await newUser.save();
+    await pendingRegistration.save();
 
-    // Send verification email
-    const emailSent = await sendVerificationEmail(email, emailVerificationToken, first_name);
+    // Send verification email with code
+    const emailSent = await sendVerificationEmail(normalizedEmail, emailVerificationCode, first_name);
     
     // Log if email sending failed (for debugging)
     if (!emailSent) {
-      console.warn(`⚠️ Verification email NOT sent to ${email}. Check SendGrid configuration.`);
-      console.warn(`Verification token for manual use: ${emailVerificationToken}`);
+      console.error(`⚠️ Verification email NOT sent to ${normalizedEmail}. Check SendGrid configuration.`);
+      console.error(`Verification code for manual use: ${emailVerificationCode}`);
+      // Still return success to user, but log the issue
+      // In production, you might want to return an error or queue the email
+    } else {
+      console.log(`✅ Verification code ${emailVerificationCode} sent to ${normalizedEmail}`);
     }
 
-    // Populate roles to include both _id and name
-    const populatedUser = await savedUser.populate("roles", "_id name");
+    // Response - don't create user account or token yet
+    const response = {
+      email: normalizedEmail,
+      message: emailSent 
+        ? "Registration initiated. Please check your email for the verification code to complete your registration."
+        : "Registration initiated. Email sending failed - please check the console for the verification code.",
+    };
 
-    // Create token
-    const token = await createAccessToken({
-      _id: populatedUser._id,
-      first_name: populatedUser.first_name,
-      last_name: populatedUser.last_name,
-      email: populatedUser.email,
-      roles: populatedUser.roles.map(role => role.name),
-    });
+    // Include the code if email sending failed (for development/testing)
+    if (!emailSent) {
+      response.verificationCode = emailVerificationCode;
+      response.debug = "Email sending failed (SendGrid credits exceeded or not configured). Use this code to verify your account.";
+      console.log(`\n${'='.repeat(60)}`);
+      console.log(`⚠️  EMAIL NOT SENT - VERIFICATION CODE FOR ${normalizedEmail}:`);
+      console.log(`   CODE: ${emailVerificationCode}`);
+      console.log(`   Expires in: 15 minutes`);
+      console.log(`${'='.repeat(60)}\n`);
+    }
 
-    await Token.findOneAndUpdate(
-  { userId: populatedUser._id },
-  { token },
-  { upsert: true, new: true }
-);
-
-    // Response
-    res.status(201).json({
-      user: {
-        _id: populatedUser._id,
-        email: populatedUser.email,
-        first_name: populatedUser.first_name,
-        last_name: populatedUser.last_name,
-        phone: populatedUser.phone,
-        roles: populatedUser.roles.map(role => ({
-          _id: role._id,
-          name: role.name,
-        })),
-        emailVerified: populatedUser.emailVerified,
-        questionnaire: false
-      },
-      token,
-      message: "Registration successful. Please check your email to verify your account.",
-    });    
+    res.status(201).json(response);    
   } catch (error) {
     res.status(500).json({ message: "Error registering user", error: error.message });
   }
@@ -246,15 +245,28 @@ export const login = async (req, res) => {
 
 export const logout = async (req, res) => {
   try {
-    const userId = req.user._id;
-
-    // Remove the token associated with the user
-    await Token.findOneAndDelete({ userId });
+    // If user is authenticated (token was valid), clear the token from database
+    if (req.user && req.user._id) {
+      const userId = req.user._id;
+      // Remove the token associated with the user
+      await Token.findOneAndDelete({ userId });
+    } else {
+      // Token was invalid/expired, but we still want to allow logout
+      // Try to find and remove token from the authorization header if present
+      const bearer = req.headers.authorization;
+      if (bearer && bearer.startsWith("Bearer ")) {
+        const token = bearer.split(" ")[1];
+        // Try to find token in database and remove it
+        await Token.findOneAndDelete({ token });
+      }
+    }
 
     res.clearCookie("token"); // Optional if using cookies
     return res.sendStatus(200);
   } catch (error) {
-    return res.status(500).json({ message: "Error logging out", error: error.message });
+    // Even if there's an error, return success since we're logging out
+    // The frontend will clear local storage anyway
+    return res.sendStatus(200);
   }
 };
 
@@ -322,7 +334,7 @@ export const changePasswordHandler = async (req, res) => {
   }
 };
 
-// Verify email endpoint
+// Verify email endpoint (token-based - for backward compatibility)
 export const verifyEmail = async (req, res) => {
   try {
     const { token } = req.query;
@@ -345,6 +357,8 @@ export const verifyEmail = async (req, res) => {
     user.emailVerified = true;
     user.emailVerificationToken = null;
     user.emailVerificationTokenExpiry = null;
+    user.emailVerificationCode = null;
+    user.emailVerificationCodeExpiry = null;
     await user.save();
 
     res.status(200).json({ message: "Email verified successfully. You can now use all features." });
@@ -354,7 +368,147 @@ export const verifyEmail = async (req, res) => {
   }
 };
 
-// Resend verification email
+// Verify email with code endpoint - creates account only after successful verification
+export const verifyEmailCode = async (req, res) => {
+  try {
+    const { email, code } = req.body;
+
+    if (!email || !code) {
+      return res.status(400).json({ message: "Email and verification code are required." });
+    }
+
+    // Find pending registration with this email and verification code
+    const pendingRegistration = await PendingRegistration.findOne({
+      email: email.toLowerCase().trim(),
+      emailVerificationCode: code,
+      emailVerificationCodeExpiry: { $gt: new Date() }, // Code not expired
+    });
+
+    if (!pendingRegistration) {
+      return res.status(400).json({ message: "Invalid or expired verification code." });
+    }
+
+    // Check if email already exists in User collection (shouldn't happen, but safety check)
+    const existingUser = await User.findOne({ email: email.toLowerCase().trim() });
+    if (existingUser) {
+      // Delete pending registration and return error
+      await PendingRegistration.findOneAndDelete({ email: email.toLowerCase().trim() });
+      return res.status(400).json({ message: "Email is already registered. Please log in instead." });
+    }
+
+    // Create the user account now that verification is successful
+    const newUser = new User({
+      email: pendingRegistration.email,
+      password: pendingRegistration.password,
+      first_name: pendingRegistration.first_name,
+      last_name: pendingRegistration.last_name,
+      phone: pendingRegistration.phone,
+      roles: [pendingRegistration.roleId],
+      emailVerified: true, // Mark as verified since we verified the code
+    });
+
+    const savedUser = await newUser.save();
+
+    // Delete the pending registration
+    await PendingRegistration.findOneAndDelete({ email: email.toLowerCase().trim() });
+
+    // Populate roles
+    const populatedUser = await savedUser.populate("roles", "_id name");
+
+    // Create access token
+    const token = await createAccessToken({
+      _id: populatedUser._id,
+      first_name: populatedUser.first_name,
+      last_name: populatedUser.last_name,
+      email: populatedUser.email,
+      roles: populatedUser.roles.map(role => role.name),
+    });
+
+    await Token.findOneAndUpdate(
+      { userId: populatedUser._id },
+      { token },
+      { upsert: true, new: true }
+    );
+
+    // Check if user has questionnaire
+    const hasQuestionnaire = await Questionnaire.exists({ user: populatedUser._id });
+
+    res.status(200).json({
+      message: "Email verified successfully. Your account has been created.",
+      user: {
+        _id: populatedUser._id,
+        email: populatedUser.email,
+        first_name: populatedUser.first_name,
+        last_name: populatedUser.last_name,
+        phone: populatedUser.phone,
+        roles: populatedUser.roles.map(role => ({
+          _id: role._id,
+          name: role.name,
+        })),
+        emailVerified: populatedUser.emailVerified,
+        questionnaire: !!hasQuestionnaire,
+      },
+      token,
+    });
+  } catch (error) {
+    console.error("Error verifying email code:", error);
+    res.status(500).json({ message: "Error verifying email code.", error: error.message });
+  }
+};
+
+// Resend verification code for pending registration (no auth required)
+export const resendPendingVerificationCode = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ message: "Email is required." });
+    }
+
+    // Find pending registration
+    const pendingRegistration = await PendingRegistration.findOne({ 
+      email: email.toLowerCase().trim() 
+    });
+
+    if (!pendingRegistration) {
+      return res.status(404).json({ 
+        message: "No pending registration found for this email. Please register again." 
+      });
+    }
+
+    // Generate new verification code
+    const emailVerificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const emailVerificationCodeExpiry = new Date();
+    emailVerificationCodeExpiry.setMinutes(emailVerificationCodeExpiry.getMinutes() + 15); // 15 minutes expiry
+
+    // Update pending registration with new code
+    pendingRegistration.emailVerificationCode = emailVerificationCode;
+    pendingRegistration.emailVerificationCodeExpiry = emailVerificationCodeExpiry;
+    await pendingRegistration.save();
+
+    // Send verification email with new code
+    const emailSent = await sendVerificationEmail(
+      pendingRegistration.email, 
+      emailVerificationCode, 
+      pendingRegistration.first_name
+    );
+    
+    if (!emailSent) {
+      console.warn(`⚠️ Verification email NOT sent to ${pendingRegistration.email}. Check email service configuration.`);
+      return res.status(500).json({ 
+        message: "Failed to send verification email. Please check email service configuration (Resend/Gmail/SendGrid).",
+        code: emailVerificationCode, // Include code for manual verification (development only)
+      });
+    }
+
+    res.status(200).json({ message: "Verification code sent. Please check your inbox." });
+  } catch (error) {
+    console.error("Error resending pending verification code:", error);
+    res.status(500).json({ message: "Error resending verification code.", error: error.message });
+  }
+};
+
+// Resend verification email (for existing users)
 export const resendVerificationEmail = async (req, res) => {
   try {
     const userId = req.userId;
@@ -368,17 +522,24 @@ export const resendVerificationEmail = async (req, res) => {
       return res.status(400).json({ message: "Email is already verified." });
     }
 
-    // Generate new verification token
+    // Generate new verification token (for backward compatibility)
     const emailVerificationToken = crypto.randomBytes(32).toString('hex');
     const emailVerificationTokenExpiry = new Date();
     emailVerificationTokenExpiry.setHours(emailVerificationTokenExpiry.getHours() + 24);
 
+    // Generate new 6-digit verification code
+    const emailVerificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const emailVerificationCodeExpiry = new Date();
+    emailVerificationCodeExpiry.setMinutes(emailVerificationCodeExpiry.getMinutes() + 15); // 15 minutes expiry
+
     user.emailVerificationToken = emailVerificationToken;
     user.emailVerificationTokenExpiry = emailVerificationTokenExpiry;
+    user.emailVerificationCode = emailVerificationCode;
+    user.emailVerificationCodeExpiry = emailVerificationCodeExpiry;
     await user.save();
 
-    // Send verification email
-    const emailSent = await sendVerificationEmail(user.email, emailVerificationToken, user.first_name);
+    // Send verification email with code
+    const emailSent = await sendVerificationEmail(user.email, emailVerificationCode, user.first_name);
     
     if (!emailSent) {
       console.warn(`⚠️ Verification email NOT sent to ${user.email}. Check SendGrid configuration.`);

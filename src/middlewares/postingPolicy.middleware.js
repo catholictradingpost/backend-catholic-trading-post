@@ -35,9 +35,31 @@ export const checkPostingPolicy = async (req, res, next) => {
       return next();
     }
 
-    // Policy 2: Free users always free (no credit deduction)
+    // Policy 2: Free users can ONLY post free items (price = 0 or category = 'free')
     if (userDoc.freeUser) {
-      // Free users can post without consuming credits
+      // Get category and price from request body
+      const category = req.body.category || req.body.type;
+      const itemPrice = req.body.price !== undefined ? parseFloat(req.body.price) : null;
+      
+      // Check if this is a free item
+      const normalizedCategory = category?.toLowerCase().trim();
+      const isFreeItem = (itemPrice !== null && itemPrice === 0) || normalizedCategory === 'free';
+      
+      if (!isFreeItem) {
+        // Free users cannot post paid items
+        return res.status(403).json({
+          message: "Free accounts can only post free items (price = $0). To post paid listings, please subscribe to a plan or purchase credits.",
+          availableOptions: [
+            "Subscribe to a plan for unlimited posts",
+            "Purchase credits for pay-per-post",
+            "Post free items (price = $0) - always free"
+          ],
+          category: category || 'N/A',
+          itemPrice: itemPrice !== null ? itemPrice : 'N/A',
+        });
+      }
+      
+      // Free users can post free items without consuming credits
       req.postingPolicy = {
         type: 'free_user',
         deductCredits: false,

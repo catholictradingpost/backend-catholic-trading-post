@@ -1,4 +1,5 @@
 import { getAuthenticationParameters, generateThumbnails } from '../utils/imagekit.js';
+import { IMAGEKIT_PUBLIC_KEY } from '../config.js';
 
 /**
  * Get signed upload parameters for client-side direct upload
@@ -24,6 +25,7 @@ export const getUploadSignature = async (req, res) => {
       expire: authParams.expire,
       fileName: uniqueFileName,
       folder: folder,
+      publicKey: IMAGEKIT_PUBLIC_KEY,
       // ImageKit upload endpoint URL for client-side direct upload
       uploadEndpoint: process.env.IMAGEKIT_URL_ENDPOINT || '',
       // Client should POST to: https://upload.imagekit.io/api/v1/files/upload

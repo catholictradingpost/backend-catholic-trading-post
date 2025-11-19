@@ -9,7 +9,7 @@ import {
   getCheckoutSession,
   createCustomerPortalSession
 } from '../libs/stripeService.js';
-import { FRONTEND_URL } from '../config.js';
+import { FRONTEND_URL, ZELLE_PAYMENT_EMAIL } from '../config.js';
 
 /**
  * Create checkout session for subscription
@@ -407,6 +407,23 @@ export const rejectZellePayment = async (req, res) => {
     console.error('Error rejecting payment:', error);
     res.status(500).json({ 
       message: 'Error rejecting payment', 
+      error: error.message 
+    });
+  }
+};
+
+/**
+ * Get Zelle payment email (public endpoint, no authentication required)
+ */
+export const getZellePaymentEmail = async (req, res) => {
+  try {
+    res.status(200).json({
+      email: ZELLE_PAYMENT_EMAIL
+    });
+  } catch (error) {
+    console.error('Error getting Zelle payment email:', error);
+    res.status(500).json({ 
+      message: 'Error getting Zelle payment email', 
       error: error.message 
     });
   }

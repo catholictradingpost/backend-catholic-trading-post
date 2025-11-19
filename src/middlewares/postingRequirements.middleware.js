@@ -1,7 +1,6 @@
 import Config from "../models/config.model.js";
 import Questionnaire from "../models/questionnaire.model.js";
 import Verification from "../models/verification.model.js";
-import User from "../models/user.model.js";
 
 export const checkPostingRequirements = async (req, res, next) => {
   try {
@@ -13,15 +12,8 @@ export const checkPostingRequirements = async (req, res, next) => {
       return next();
     }
 
-    // Check email verification requirement
-    if (config.requireEmailVerification) {
-      const userDoc = await User.findById(user._id);
-      if (!userDoc || !userDoc.emailVerified) {
-        return res.status(403).json({
-          message: "Email verification required. Please verify your email to create posts.",
-        });
-      }
-    }
+    // Email verification is only required during registration, not for posting
+    // Removed email verification check from posting requirements
 
     // Check questionnaire verification requirement
     if (config.requireQuestionnaireVerification) {

@@ -19,6 +19,14 @@ const userSchema = new mongoose.Schema(
     phone: {
       type: String,
     },
+    avatar: {
+      type: String,
+      default: null,
+    },
+    cover_image: {
+      type: String,
+      default: null,
+    },
     roles: [
       {
         type: mongoose.Schema.Types.ObjectId,
@@ -35,6 +43,14 @@ const userSchema = new mongoose.Schema(
       default: null,
     },
     emailVerificationTokenExpiry: {
+      type: Date,
+      default: null,
+    },
+    emailVerificationCode: {
+      type: String,
+      default: null,
+    },
+    emailVerificationCodeExpiry: {
       type: Date,
       default: null,
     },

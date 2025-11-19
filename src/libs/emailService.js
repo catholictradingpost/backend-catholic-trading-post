@@ -7,18 +7,21 @@ if (SENDGRID_API_KEY) {
   sgMail.setApiKey(SENDGRID_API_KEY);
 }
 
-export const sendVerificationEmail = async (email, token, firstName) => {
+export const sendVerificationEmail = async (email, code, firstName) => {
   if (!SENDGRID_API_KEY) {
-    console.warn('SendGrid API key not configured. Email verification email not sent.');
+    console.error('❌ SendGrid API key not configured. Email verification email not sent.');
+    console.error('   Please set SENDGRID_API_KEY in your .env file');
     return false;
   }
 
-  const verificationUrl = `${FRONTEND_URL}/verify-email?token=${token}`;
+  const fromEmail = process.env.SENDGRID_FROM_EMAIL || 'noreply@catholictradingpost.com';
+  
+  console.log(`📧 Attempting to send verification email to ${email} from ${fromEmail}`);
 
   const msg = {
     to: email,
     from: {
-      email: process.env.SENDGRID_FROM_EMAIL || 'noreply@catholictradingpost.com',
+      email: fromEmail,
       name: 'Catholic Trading Post',
     },
     subject: 'Verify Your Email Address',
@@ -29,19 +32,23 @@ export const sendVerificationEmail = async (email, token, firstName) => {
         <style>
           body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
           .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .button { display: inline-block; padding: 12px 24px; background-color: #1d4ed8; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; }
+          .code-box { background-color: #f5f5f5; border: 2px solid #1d4ed8; border-radius: 8px; padding: 20px; text-align: center; margin: 20px 0; }
+          .verification-code { font-size: 32px; font-weight: bold; color: #1d4ed8; letter-spacing: 8px; font-family: 'Courier New', monospace; }
           .footer { margin-top: 30px; font-size: 12px; color: #666; }
+          .warning { color: #d97706; font-weight: bold; }
         </style>
       </head>
       <body>
         <div class="container">
           <h2>Welcome to Catholic Trading Post!</h2>
           <p>Hello ${firstName || 'there'},</p>
-          <p>Thank you for registering. Please verify your email address by clicking the button below:</p>
-          <a href="${verificationUrl}" class="button">Verify Email Address</a>
-          <p>Or copy and paste this link into your browser:</p>
-          <p style="word-break: break-all;">${verificationUrl}</p>
-          <p>This link will expire in 24 hours.</p>
+          <p>Thank you for registering. Please verify your email address by entering the verification code below:</p>
+          <div class="code-box">
+            <p style="margin-top: 0; font-weight: bold;">Your Verification Code:</p>
+            <div class="verification-code">${code}</div>
+          </div>
+          <p class="warning">⚠️ This code will expire in 15 minutes.</p>
+          <p>Enter this code in the verification form to complete your registration.</p>
           <p>If you didn't create an account, please ignore this email.</p>
           <div class="footer">
             <p>Best regards,<br>The Catholic Trading Post Team</p>
@@ -53,10 +60,45 @@ export const sendVerificationEmail = async (email, token, firstName) => {
   };
 
   try {
-    await sgMail.send(msg);
+    const result = await sgMail.send(msg);
+    console.log(`✅ Verification email sent successfully to ${email}`);
+    console.log(`   SendGrid response status: ${result[0]?.statusCode || 'unknown'}`);
     return true;
   } catch (error) {
-    console.error('Error sending verification email:', error);
+    console.error('❌ Error sending verification email to', email);
+    console.error('   Error message:', error.message);
+    
+    if (error.response) {
+      const { status, body } = error.response;
+      console.error(`   SendGrid API Error - Status: ${status}`);
+      console.error('   Error body:', JSON.stringify(body, null, 2));
+      
+      // Common SendGrid errors
+      if (body && body.errors) {
+        body.errors.forEach((err, index) => {
+          console.error(`   Error ${index + 1}:`, err.message);
+          if (err.field) {
+            console.error(`      Field: ${err.field}`);
+          }
+          if (err.help) {
+            console.error(`      Help: ${err.help}`);
+          }
+        });
+      }
+      
+      // Specific error messages
+      if (status === 403) {
+        console.error('   ⚠️  This usually means:');
+        console.error('      - The FROM email is not verified in SendGrid');
+        console.error('      - Or the API key does not have Mail Send permissions');
+      } else if (status === 401) {
+        console.error('   ⚠️  This usually means:');
+        console.error('      - The API key is invalid or expired');
+      }
+    } else {
+      console.error('   Full error object:', error);
+    }
+    
     return false;
   }
 };
